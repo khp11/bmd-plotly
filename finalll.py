@@ -204,12 +204,7 @@ girders = {
     4: list(range(14, 78, 9))+[82],
     3: list(range(15, 79, 9))+[83],
     2: list(range(16, 80, 9))+[84],
-    1: list(range(17, 81, 9)) +[85],
-
-    
-    
-    
-    
+    1: list(range(17, 81, 9)) +[85],    
 }
 '''
 colors = {
@@ -286,15 +281,20 @@ fig_sfd.show()
 '''
 
 # PLOTLY 3D BMD INTERACTIVE
-fig_bmd = go.Figure()
 xfull=[]
 mzfull =[]
+fig_bmd = go.Figure()
 for gid, elems in girders.items():
     xs, ys, zs, mz, node_ids = build_polyline(elems, Mz_i, Mz_j)
-    mz=100*mz
-    y_plot = mz #* 0.05  # moment scale
     xfull.extend(xs)
     mzfull.extend(mz)
+diffxfull = max(xfull)-min(xfull)
+diffmzfull = max(mzfull)-min(mzfull)
+factormz= abs(diffmzfull/diffxfull)*0.35
+for gid, elems in girders.items():
+    xs, ys, zs, mz, node_ids = build_polyline(elems, Mz_i, Mz_j)
+    
+    y_plot = mz*factormz #* 0.05  # moment scale
     hover_text = [
         f"Node {nid}<br>X = {x:.3f}<br>Mz = {v:.3f}<br>Z = {z:.3f}"
         for nid, x, v,z in zip(node_ids, xs, mz,zs)
@@ -331,7 +331,7 @@ for gid, elems in girders.items():
   
     fig_bmd.add_trace(go.Scatter3d(
     x = [xs[np.argmax(mz)],xs[np.argmax(mz)]],
-    y = [0, mz[np.argmax(mz)]],
+    y = [0, max(mz)*factormz],
     z = [zs[0]] * 2,
     mode="lines",
     line=dict(color="black", width=3),
@@ -343,7 +343,7 @@ for gid, elems in girders.items():
 
     fig_bmd.add_trace(go.Scatter3d(
         x = [xs[np.argmin(mz)]] * 2,
-        y = [0, mz[np.argmin(mz)]],
+        y = [0, min(mz)*factormz],
         z = [zs[0]] * 2,
         mode="lines",
         line=dict(color="black", width=3),
@@ -354,7 +354,7 @@ for gid, elems in girders.items():
     ))
 
 
-    # ================= SUPPORT GEOMETRY =================
+    # ------------ SUPPORT GEOMETRY -----------
     L = max(xs) - min(xs)
     h = 0.1299 * L      # support height
     w = 0.03 * L       # support half-width
@@ -386,22 +386,25 @@ for gid, elems in girders.items():
         showlegend=False,
         hoverinfo="skip"
     ))
+    Yb = -h   # base of triangle
+
 
     # Rollers (two wheels)
-    theta = np.linspace(0, 2 * np.pi, 40)
+    theta = np.linspace(0, 2 * np.pi, 60)
 
     for dx in [-w / 2, w / 2]:
         fig_bmd.add_trace(go.Scatter3d(
-            x=x1 + dx + r * np.cos(theta),
-            y=-h - r + (r*5/2) * np.sin(theta),
-            z=[z1] * len(theta),
+            x = x1 + dx + r * np.cos(theta),
+            y = (Yb - r) + r * np.sin(theta),   # ✅ tangent to triangle base
+            z = [z1] * len(theta),
             mode="lines",
             line=dict(color="blue", width=5),
             showlegend=False,
             hoverinfo="skip"
         ))
 
-pad = 0.01*(max(xfull) - min(xfull))
+
+#pad = 0.01*(max(xfull) - min(xfull))
 #pad2 = 0.01*(max(mzfull) - min(mzfull))
 
 
@@ -466,12 +469,14 @@ updatemenus=[
         )
     ],  
     title="Interactive 3D BMD",
+
     scene=dict(
         
         camera=dict(
-            eye=dict(x=0.001, y=0.001, z=10),  # 👈 looking along +Z
-            up=dict(x=0, y=1.5, z=0),           # 👈 Y is vertical (Mz)
-            center=dict(x=0, y=0, z=0)
+            eye=dict(x=2.5, y=0.15, z=10),  # 👈 pull camera along X
+            up=dict(x=0, y=1, z=0),
+            center=dict(x=0, y=0, z=0),
+            projection=dict(type="orthographic")
         ),
         xaxis=dict(
             title = "girder length",
@@ -482,7 +487,7 @@ updatemenus=[
             visible=False
         ),
         yaxis=dict(
-            range=[min(mzfull) - 0.2 * (max(xfull) - min(xfull)),max(mzfull) + 0.2 * (max(xfull) - min(xfull))],
+            range=[min(mzfull) - 0.25 * (max(mzfull) - min(mzfull)),max(mzfull) + 0.25 * (max(mzfull) - min(mzfull))],
             title = "Mz values",
             #range = [min(mzfull)-pad2,max(mzfull)+pad2],
             showbackground=True,    # 
@@ -499,11 +504,9 @@ updatemenus=[
             autorange="reversed"
         ),
         aspectmode='manual',
-        aspectratio=dict(
-            x=10,   #makes cuboid long in X
-            y=2,
-            z=5
-        )
+        
+        
+        
     ),
     
     
